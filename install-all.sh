@@ -6,7 +6,7 @@ sudo apt -y install g*-13
 sudo apt -y install g*-14
 sudo apt -y install synaptic 
 sudo apt -y install cmake git blender mm3d gimp nasm yasm geany* flex bison 
-sudo apt -y install *boost*83* *assimp* *soil* *stb* freetype* *glm*dev *glew-dev mesa-utils *glfw3-dev *freeglut* *froga* *irrl* *sdl2* *sfml* *allegro*
+sudo apt -y install *boost*83* *assimp*dev *soil*dev *stb*dev *freetype*dev *glm*dev *glew-dev mesa-utils *glfw3-dev *freeglut*dev *froga* *irrl*dev *sdl2*dev *sfml*dev *allegro*dev
 sudo snap install code --classic
 sudo apt -y install dotnet*8*
 code --install-extension ms-dotnettools.csharp
