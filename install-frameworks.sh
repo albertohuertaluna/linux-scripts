@@ -5,7 +5,6 @@ rm -rf frameworks
 mkdir frameworks
 cd frameworks
 
-
 git clone --recursive https://github.com/glfw/glfw.git 
 cd glfw/
 mkdir build
@@ -90,7 +89,7 @@ make install
 cd ..
 cd ..
 
-git clone https://github.com/boostorg/boost.git
+git clone --recursive https://github.com/boostorg/boost.git
 cd boost
 ./bootstrap.sh
 ./b2 install --prefix=../sdk link=shared toolset=gcc
