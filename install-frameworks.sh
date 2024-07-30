@@ -135,3 +135,7 @@ git clone --recursive https://github.com/ocornut/imgui.git
 mv imgui sdk/include
 timestamp=$(date +%Y%m%d_%H%M%S) && tar -cvJf sdk_$timestamp.tar.xz sdk
 mv -v *.tar.xz ..
+
+cd ..
+
+rm -rf frameworks
