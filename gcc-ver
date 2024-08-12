@@ -1,0 +1,2 @@
+gccver=$(gcc --version | grep gcc | cut -d' ' -f3 | cut -d'-' -f1)
+echo $gccver
