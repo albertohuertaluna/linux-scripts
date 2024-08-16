@@ -1,39 +1,60 @@
 sudo update-alternatives --set gcc /usr/bin/gcc-$1
 sudo update-alternatives --set g++ /usr/bin/g++-$1
+# cmake  -DBUILD_SHARED_LIBS=ON  -DASSIMP_WARNINGS_AS_ERRORS=OFF -DASSIMP_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=../../sdk ..
+# make -j 16
+# make install
+# rm -rf * 
+
+
+mkdir repos
+cd repos
+git clone --recursive https://github.com/boostorg/boost.git 
+git clone --recursive https://github.com/assimp/assimp.git
+git clone --recursive https://github.com/glfw/glfw.git 
+git clone --recursive https://github.com/nigels-com/glew.git
+git clone --recursive https://github.com/erincatto/box2d.git
+git clone --recursive https://github.com/bulletphysics/bullet3.git bullet
+git clone --recursive https://github.com/slembcke/Chipmunk2D.git
+git clone --recursive  https://github.com/g-truc/glm.git
+git clone --recursive https://github.com/g-truc/gli
+git clone https://github.com/nothings/stb.git
+git clone --recursive https://github.com/kcat/openal-soft.git
+git clone --recursive https://github.com/freetype/freetype.git
+git clone --recursive https://github.com/ocornut/imgui.git
+cd ..
 
 rm -rf frameworks
 mkdir frameworks
 cd frameworks
-pwd
 cp -R ../repos/* .
-find . -type d -name "build" -exec rm -rf {} +
 
-cd SOIL2 
+
+cd boost
+./bootstrap.sh
 mkdir build
 cd build
 cmake -DCMAKE_INSTALL_PREFIX=../../sdk .. 
-make 
-make install
-cd ..
-cd ..
-
-cd boost
-mkdir build
-cd build
-cmake -DBOOST_RUNTIME_LINK=ON -DCMAKE_INSTALL_PREFIX=../../sdk .. 
 make -j 16
 make install
+# ./b2 -j16 install --prefix=../sdk link=shared toolset=gcc
+# ./b2 -j16 install --prefix=../sdk link=static toolset=gcc
 cd ..
 cd ..
 
 cd assimp
 mkdir build
 cd build
+cmake  -DBUILD_SHARED_LIBS=ON  -DASSIMP_WARNINGS_AS_ERRORS=OFF -DASSIMP_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=../../sdk ..
+make -j 16
+make install
+rm -rf * 
 cmake  -DBUILD_SHARED_LIBS=OFF -DASSIMP_WARNINGS_AS_ERRORS=OFF -DASSIMP_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=../../sdk ..
 make -j 16
 make install
 cd ..
 cd ..
+
+
 
 cd glfw/
 mkdir build
@@ -49,10 +70,14 @@ cd auto
 sed -i 's/PYTHON ?= python/PYTHON ?= python3/' Makefile
 cd ..
 make extensions
-make -j 16
-make install GLEW_DEST=../sdk
-mv ../sdk/lib64/*.a ../sdk/lib
-rm -rf ../sdk/lib64
+pwd
+echo "GLEW!!!!"
+mkdir build
+cd build
+cmake -DCMAKE_INSTALL_PREFIX=../../sdk ./cmake
+make -j16
+make install
+cd ..
 cd ..
 
 cd box2d
@@ -62,17 +87,14 @@ cmake -DBOX2D_SAMPLES=OFF -DBOX2D_BENCHMARKS=OFF -DBOX2D_DOCS=OFF -DBOX2D_PROFIL
 make -j 16
 make install
 cd ..
-mv include/box2d ../sdk/include 
+mv include/box2d ../../sdk/include 
+cd ..
 cd ..
 
 cd bullet
 mkdir build
 cd build
-# cmake  cmake  -DBUILD_SHARED_LIBS=ON -DBUILD_EXTRAS=OFF -DBUILD_UNIT_TESTS=OFF -DBUILD_BULLET2_DEMOS=OFF -DBUILD_OPENGL3_DEMOS=OFF -DBUILD_CPU_DEMOS=OFF -DBUILD_EXTRAS=OFF -DCMAKE_INSTALL_PREFIX=../../sdk ..
-# make -j 16
-# make install
-# rm -rf *
-cmake  -DBUILD_SHARED_LIBS=OFF -DBUILD_EXTRAS=OFF -DBUILD_UNIT_TESTS=OFF -DBUILD_BULLET2_DEMOS=OFF -DBUILD_OPENGL3_DEMOS=OFF -DBUILD_CPU_DEMOS=OFF -DBUILD_EXTRAS=OFF -DCMAKE_INSTALL_PREFIX=../../sdk ..
+cmake  cmake  -DBUILD_SHARED_LIBS=ON -DBUILD_EXTRAS=OFF -DBUILD_UNIT_TESTS=OFF -DBUILD_BULLET2_DEMOS=OFF -DBUILD_OPENGL3_DEMOS=OFF -DBUILD_CPU_DEMOS=OFF -DBUILD_EXTRAS=OFF -DCMAKE_INSTALL_PREFIX=../../sdk ..
 make -j 16
 make install
 cd ..
@@ -81,7 +103,7 @@ cd ..
 cd Chipmunk2D
 mkdir build
 cd build
-cmake  -DINSTALL_STATIC=ON -DBUILD_SHARED=OFF -BUILD_STATIC=ON -DBUILD_DEMOS=OFF -DCMAKE_INSTALL_PREFIX=../../sdk ..
+cmake  -DBUILD_DEMOS=OFF -DCMAKE_INSTALL_PREFIX=../../sdk ..
 make -j 16
 make install
 cd ..
@@ -118,29 +140,21 @@ cd ..
 mv stb sdk/include
 
 git clone --recursive https://github.com/vancegroup/freealut.git
-cd freealut 
+cd freealut
 mkdir build
 cd build
-cmake  -DBUILD_SHARED_LIBS=OFF -DBUILD_DEMOS=OFF -DCMAKE_INSTALL_PREFIX=../../sdk ..
+cmake -DCMAKE_INSTALL_PREFIX:STRING="../../sdk" ..
 make -j 16
 make install
-# rm -rf *
-# cmake  -DBUILD_SHARED_LIBS=ON -DBUILD_DEMOS=OFF -DCMAKE_INSTALL_PREFIX=../../sdk ..
-# make -j 16
-# make install
 cd ..
 cd ..
 
 cd openal-soft
 mkdir build
 cd build
-cmake -DLIBTYPE=STATIC -DALSOFT_STATIC_LIBGCC=ON -DALSOFT_TESTS=OFF -DALSOFT_INSTALL_EXAMPLES=OFF -DALSOFT_EXAMPLES=OFF -DCMAKE_INSTALL_PREFIX:STRING="../../sdk" ..
+cmake -DCMAKE_INSTALL_PREFIX:STRING="../../sdk" ..
 make -j 16
 make install
-# rm -rf *
-# cmake -DALSOFT_TESTS=OFF -DALSOFT_INSTALL_EXAMPLES=OFF -DALSOFT_EXAMPLES=OFF -DCMAKE_INSTALL_PREFIX:STRING="../../sdk" ..
-# make -j 16
-# make install
 cd ..
 cd ..
 
@@ -148,7 +162,7 @@ cd ..
 cd freetype
 mkdir build
 cd build
-cmake -DBUILD_SHARED_LIBS=false -DCMAKE_INSTALL_PREFIX:STRING="../../sdk" ..
+cmake -DCMAKE_INSTALL_PREFIX:STRING="../../sdk" ..
 make -j 16
 make install
 cd ..
@@ -219,18 +233,9 @@ make install
 cd ..
 cd ..
 
-find . -type d -name ".git" -exec rm -rf {} +
-find . -type d -name "build" -exec rm -rf {} +
+
 cd sdk
-cd lib
-mkdir shared
-mv *.so shared
-mv *.so.* shared
-#mv *.a static
-#find . -type d ! -name "shared" ! -name "static" -exec rm -rf {} +
-find . -type d ! -name "shared" ! -name "static" -exec rm -rf {} +
-rm -rf shared
-cd ..
+find . -type d -name ".git" -exec rm -rf {} +
 gccver=$(gcc --version | grep gcc | cut -d' ' -f3 | cut -d'-' -f1)
 timestamp=$(date +%Y-%m-%d_%H-%M-%S) && tar -cvJf sdk_gcc$1-$timestamp.tar.xz .
 mv -v *.tar.xz ../..

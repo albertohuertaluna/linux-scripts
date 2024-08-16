@@ -1,202 +1,244 @@
-import subprocess
+import sys
 import os
+import subprocess
 import shutil
-import argparse
 from datetime import datetime
+import time
 
-def run_command(command, log_file, check=True, verbose=False):
-    """Executes a shell command and logs errors if any, with optional verbosity."""
-    if verbose:
-        print(f"Executing: {command}")
-        
-    try:
-        result = subprocess.run(command, shell=True, check=check, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if verbose:
-            print(result.stdout.decode())
-    except subprocess.CalledProcessError as e:
-        with open(log_file, 'a') as log:
-            log.write(f"Command failed: {command}\n")
-            log.write(f"Return code: {e.returncode}\n")
-            log.write(f"Stdout:\n{e.stdout.decode()}\n")
-            log.write(f"Stderr:\n{e.stderr.decode()}\n")
-            log.write("="*40 + "\n")
-        if verbose:
-            print(f"Error occurred while executing: {command}")
-            print(f"Return code: {e.returncode}")
-            print(f"Stdout:\n{e.stdout.decode()}")
-            print(f"Stderr:\n{e.stderr.decode()}")
+def run_command(command):
+    subprocess.run(command, shell=True, check=True)
 
-def clone_build_install_glew(log_file, verbose):
-    """Clones, builds, and installs GLEW."""
-    # Clone GLEW repository
-    run_command('git clone --recursive https://github.com/nigels-com/glew.git', log_file, verbose=verbose)
-    
-    # Change to the GLEW directory
-    os.chdir('glew')
-    
-    # Change to the auto directory and update Makefile
-    os.chdir('auto')
-    run_command('sed -i "s/PYTHON ?= python/PYTHON ?= python3/" Makefile', log_file, verbose=verbose)
-    
-    # Change back to the root of the GLEW directory
-    os.chdir('..')
-    
-    # Build extensions
-    run_command('make extensions', log_file, verbose=verbose)
-    
-    # Change to the build directory
-    os.makedirs('build', exist_ok=True)
-    os.chdir('build')
-    
-    # Run CMake and Make
-    run_command('cmake -DCMAKE_INSTALL_PREFIX=../../sdk ./cmake', log_file, verbose=verbose)
-    run_command('make -j16', log_file, verbose=verbose)
-    
-    # Install GLEW
-    run_command('make install', log_file, verbose=verbose)
-    
-    # Change back to the previous directory
-    os.chdir('../..')
+def setup_gcc_version(version):
+    run_command(f"sudo update-alternatives --set gcc /usr/bin/gcc-{version}")
+    run_command(f"sudo update-alternatives --set g++ /usr/bin/g++-{version}")
 
-def main(gcc_version, verbose):
-    # Define log file
+def check_and_clone_repos():
+    if os.path.exists("./repos"):
+        os.chdir("./repos")
+        for root, dirs, files in os.walk("."):
+            if ".git" in dirs:
+                os.chdir(root)
+                print(f"Updating {os.path.basename(root)}")
+                run_command("git pull")
+                os.chdir("..")
+        os.chdir("..")
+    else:
+        print("Directory 'repos' does not exist. Cloning repositories...")
+        os.mkdir("repos")
+        os.chdir("repos")
+        run_command("git clone --recursive https://github.com/boostorg/boost.git")
+        run_command("git clone --recursive https://github.com/assimp/assimp.git")
+        run_command("git clone --recursive https://github.com/glfw/glfw.git")
+        run_command("git clone --recursive https://github.com/nigels-com/glew.git")
+        run_command("git clone --recursive https://github.com/erincatto/box2d.git")
+        run_command("git clone --recursive https://github.com/bulletphysics/bullet3.git bullet")
+        run_command("git clone --recursive https://github.com/slembcke/Chipmunk2D.git")
+        run_command("git clone --recursive https://github.com/g-truc/glm.git")
+        run_command("git clone --recursive https://github.com/g-truc/gli.git")
+        run_command("git clone https://github.com/nothings/stb.git")
+        run_command("git clone --recursive https://github.com/vancegroup/freealut.git")
+        run_command("git clone --recursive https://github.com/kcat/openal-soft.git")
+        run_command("git clone --recursive https://github.com/freetype/freetype.git")
+        run_command("git clone --recursive https://github.com/ocornut/imgui.git")
+        os.chdir("..")
+
+def prepare_frameworks():
+    if os.path.exists("frameworks"):
+        shutil.rmtree("frameworks")
+    os.mkdir("frameworks")
+    os.chdir("frameworks")
+    shutil.copytree("../repos", ".", dirs_exist_ok=True)
+    for root, dirs, files in os.walk("."):
+        if "build" in dirs and "glew" not in root:
+            shutil.rmtree(os.path.join(root, "build"))
+
+def build_boost():
+    os.chdir("boost")
+    os.mkdir("build")
+    os.chdir("build")
+    run_command("cmake -DBOOST_RUNTIME_LINK=ON -DCMAKE_INSTALL_PREFIX=../../sdk ..")
+    run_command("make -j 16")
+    run_command("make install")
+    os.chdir("../..")
+
+def build_assimp():
+    os.chdir("assimp")
+    os.mkdir("build")
+    os.chdir("build")
+    run_command("cmake -DBUILD_SHARED_LIBS=OFF -DASSIMP_WARNINGS_AS_ERRORS=OFF -DASSIMP_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=../../sdk ..")
+    run_command("make -j 16")
+    run_command("make install")
+    os.chdir("../..")
+
+def build_glfw():
+    os.chdir("glfw")
+    os.mkdir("build")
+    os.chdir("build")
+    run_command("cmake -DGLFW_BUILD_TESTS=OFF -DGLFW_BUILD_EXAMPLES=OFF -DCMAKE_INSTALL_PREFIX=../../sdk ..")
+    run_command("make -j 16")
+    run_command("make install")
+    os.chdir("../..")
+
+def build_glew():
+    os.chdir("glew/auto")
+    run_command("sed -i 's/PYTHON ?= python/PYTHON ?= python3/' Makefile")
+    os.chdir("..")
+    run_command("make extensions")
+    run_command("make")
+    run_command("make install GLEW_DEST=../sdk")
+    run_command("mv ../sdk/lib64/* ../sdk/lib")
+    run_command("rm -rf ../sdk/lib64")
+    run_command("pwd")
+    os.chdir("..")
+    
+
+def build_box2d():
+    os.chdir("box2d")
+    os.mkdir("build")
+    os.chdir("build")
+    run_command("cmake -DBOX2D_SAMPLES=OFF -DBOX2D_BENCHMARKS=OFF -DBOX2D_DOCS=OFF -DBOX2D_PROFILE=OFF -DBOX2D_VALIDATE=OFF -DBOX2D_UNIT_TESTS=OFF -DCMAKE_INSTALL_PREFIX=../../sdk ..")
+    run_command("make -j 16")
+    run_command("make install")
+    os.chdir("..")
+    shutil.move("include/box2d", "../sdk/include")
+    os.chdir("..")
+
+def build_bullet():
+    os.chdir("bullet")
+    os.mkdir("build")
+    os.chdir("build")
+    run_command("cmake -DBUILD_SHARED_LIBS=OFF -DBUILD_EXTRAS=OFF -DBUILD_UNIT_TESTS=OFF -DBUILD_BULLET2_DEMOS=OFF -DBUILD_OPENGL3_DEMOS=OFF -DBUILD_CPU_DEMOS=OFF -DCMAKE_INSTALL_PREFIX=../../sdk ..")
+    run_command("make -j 16")
+    run_command("make install")
+    os.chdir("../..")
+
+def build_chipmunk2d():
+    os.chdir("Chipmunk2D")
+    os.mkdir("build")
+    os.chdir("build")
+    run_command("cmake -DINSTALL_STATIC=ON -DBUILD_SHARED=OFF -BUILD_STATIC=ON -DBUILD_DEMOS=OFF -DCMAKE_INSTALL_PREFIX=../../sdk ..")
+    run_command("make -j 16")
+    run_command("make install")
+    os.chdir("../..")
+
+def build_glm():
+    os.chdir("glm")
+    os.mkdir("build")
+    os.chdir("build")
+    run_command("cmake -DGLM_ENABLE_SIMD_SSE2=ON -DGLM_ENABLE_SIMD_SSE3=ON -DGLM_ENABLE_SIMD_SSSE3=ON "
+                "-DGLM_ENABLE_SIMD_SSE4_1=ON -DGLM_ENABLE_SIMD_SSE4_2=ON -DGLM_ENABLE_SIMD_AVX=ON "
+                "-DGLM_ENABLE_SIMD_AVX2=ON -DGLM_BUILD_LIBRARY=ON -DGLM_BUILD_TESTS=OFF -DGLM_ENABLE_CXX_20=ON "
+                "-DCMAKE_INSTALL_PREFIX=../../sdk ..")
+    run_command("make -j 16")
+    run_command("make install")
+    os.chdir("../..")
+
+def build_gli():
+    os.chdir("gli")
+    os.mkdir("build")
+    os.chdir("build")
+    run_command("cmake -DGLI_TEST_ENABLE=OFF -DCMAKE_INSTALL_PREFIX=../../sdk ..")
+    run_command("make -j 16")
+    run_command("make install")
+    os.chdir("../..")
+
+def build_freealut():
+    run_command("git clone --recursive https://github.com/vancegroup/freealut.git")
+    os.chdir("freealut")
+    os.mkdir("build")
+    os.chdir("build")
+    run_command("cmake -DBUILD_SHARED_LIBS=OFF -DBUILD_DEMOS=OFF -DCMAKE_INSTALL_PREFIX=../../sdk ..")
+    run_command("make -j 16")
+    run_command("make install")
+    os.chdir("../..")
+
+def build_openal_soft():
+    os.chdir("openal-soft")
+    os.mkdir("build")
+    os.chdir("build")
+    run_command("cmake -DLIBTYPE=STATIC -DALSOFT_STATIC_LIBGCC=ON -DALSOFT_TESTS=OFF -DALSOFT_INSTALL_EXAMPLES=OFF "
+                "-DALSOFT_EXAMPLES=OFF -DCMAKE_INSTALL_PREFIX=../../sdk ..")
+    run_command("make -j 16")
+    run_command("make install")
+    os.chdir("../..")
+
+def build_freetype():
+    os.chdir("freetype")
+    os.mkdir("build")
+    os.chdir("build")
+    run_command("cmake -DBUILD_SHARED_LIBS=false -DCMAKE_INSTALL_PREFIX=../../sdk ..")
+    run_command("make -j 16")
+    run_command("make install")
+    os.chdir("../..")
+
+def cleanup_git_build_dirs():
+    for root, dirs, files in os.walk("frameworks"):
+        if ".git" in dirs:
+            shutil.rmtree(os.path.join(root, ".git"))
+        if "build" in dirs:
+            shutil.rmtree(os.path.join(root, "build"))
+
+def create_archive(version):
+    os.chdir("sdk")
+    os.chdir("lib")
+    os.mkdir("shared")
+    for file in os.listdir("."):
+        if file.endswith(".so") or file.endswith(".so.*"):
+            shutil.move(file, "shared/")
+    for root, dirs, files in os.walk("."):
+        for dir in dirs:
+            if dir != "shared" and dir != "static":
+                shutil.rmtree(os.path.join(root, dir))
+    shutil.rmtree("shared")
+    os.chdir("../..")
+    gccver = subprocess.getoutput("gcc --version | grep gcc | cut -d' ' -f3 | cut -d'-' -f1")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    run_command(f"tar -cvJf sdk_gcc{version}-{timestamp}.tar.xz sdk")
+    shutil.move(f"sdk_gcc{version}-{timestamp}.tar.xz", "../..")
+    os.chdir("..")
+    shutil.move("sdk", f"sdk-gcc{version}")
+    shutil.move(f"sdk-gcc{version}", "..")
+    shutil.rmtree("frameworks")    
+
+def main(version):
+    start_time = time.time()  
+    setup_gcc_version(version)
+    check_and_clone_repos()
+    prepare_frameworks()
+    build_glew()
+    build_glfw()
+    build_boost()
+    build_assimp()
+    build_box2d()
+    build_bullet()
+    build_chipmunk2d()
+    build_glm()
+    build_gli()
+    build_freealut()
+    build_openal_soft()
+    build_freetype() 
+    cleanup_git_build_dirs()
+    create_archive(version)
+
+    # Additional build functions can be added here
+
+    # Archive and clean up
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    log_file = f'build_errors_{gcc_version}_{timestamp}.log'
+    run_command(f"tar -cvJf sdk_gcc{version}-{timestamp}.tar.xz -C sdk .")
+    shutil.move(f"sdk_gcc{version}-{timestamp}.tar.xz", "../..")
+    shutil.move("sdk", f"sdk-gcc{version}")
+    shutil.move(f"sdk-gcc{version}", "../..")
+    os.chdir("..")
+    shutil.rmtree("frameworks")
     
-    # Set GCC version
-    run_command(f'sudo update-alternatives --set gcc /usr/bin/gcc-{gcc_version}', log_file, verbose=verbose)
-    run_command(f'sudo update-alternatives --set g++ /usr/bin/g++-{gcc_version}', log_file, verbose=verbose)
-
-    # Clean up and create directories
-    if os.path.exists('frameworks'):
-        shutil.rmtree('frameworks')
-    os.makedirs('frameworks')
-    os.chdir('frameworks')
-
-    # Clone, build, and install GLEW
-    clone_build_install_glew(log_file, verbose)
-
-    # Function to clone, build, and install other libraries
-    def clone_build_install(repo_url, build_dir_name, cmake_args=[], make_args=['-j 16'], install_args=[]):
-        repo_name = repo_url.split('/')[-1].replace('.git', '')
-        run_command(f'git clone --recursive {repo_url}', log_file, verbose=verbose)
-        os.chdir(repo_name)
-        os.makedirs(build_dir_name, exist_ok=True)
-        os.chdir(build_dir_name)
-        cmake_command = f'cmake {" ".join(cmake_args)} ..'
-        run_command(cmake_command, log_file, verbose=verbose)
-        run_command(f'make {" ".join(make_args)}', log_file, verbose=verbose)
-        run_command(f'make install {" ".join(install_args)}', log_file, verbose=verbose)
-        os.chdir('..')
-        os.chdir('..')
-
-    # Clone and build other libraries
-    clone_build_install(
-        'https://github.com/glfw/glfw.git',
-        'build',
-        cmake_args=['-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_INSTALL_PREFIX=../../sdk']
-    )
-
-    clone_build_install(
-        'https://github.com/assimp/assimp.git',
-        'build',
-        cmake_args=['-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_INSTALL_PREFIX=../../sdk']
-    )
-
-    clone_build_install(
-        'https://github.com/erincatto/box2d.git',
-        'build',
-        cmake_args=['-DBOX2D_BUILD_DOCS=ON', '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_INSTALL_PREFIX=../../sdk']
-    )
-
-    clone_build_install(
-        'https://github.com/bulletphysics/bullet3.git',
-        'build',
-        cmake_args=['-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_INSTALL_PREFIX=../../sdk']
-    )
-
-    clone_build_install(
-        'https://github.com/slembcke/Chipmunk2D.git',
-        'build',
-        cmake_args=['-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_INSTALL_PREFIX=../../sdk']
-    )
-
-    clone_build_install(
-        'https://github.com/g-truc/glm.git',
-        'build',
-        cmake_args=['-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_INSTALL_PREFIX=../../sdk']
-    )
-
-    clone_build_install(
-        'https://github.com/g-truc/gli',
-        'build',
-        cmake_args=['-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_INSTALL_PREFIX=../../sdk']
-    )
-
-    # Clone and build Boost
-    run_command('git clone --recursive https://github.com/boostorg/boost.git', log_file, verbose=verbose)
-    os.chdir('boost')
-    run_command('./bootstrap.sh', log_file, verbose=verbose)
-    run_command('./b2 install --prefix=../sdk link=shared toolset=gcc', log_file, verbose=verbose)
-    run_command('./b2 install --prefix=../sdk link=static toolset=gcc', log_file, verbose=verbose)
-    os.chdir('..')
-
-    # Clone and move stb
-    run_command('git clone https://github.com/nothings/stb.git', log_file, verbose=verbose)
-    shutil.move('stb', 'sdk/include')
-
-    # Clone and build FreeALUT
-    clone_build_install(
-        'https://github.com/vancegroup/freealut.git',
-        'build',
-        cmake_args=['-DCMAKE_INSTALL_PREFIX:STRING="../../sdk"']
-    )
-
-    # Clone and build OpenAL Soft
-    clone_build_install(
-        'https://github.com/kcat/openal-soft.git',
-        'build',
-        cmake_args=['-DCMAKE_INSTALL_PREFIX:STRING="../../sdk"']
-    )
-
-    # Clone and build FreeType
-    clone_build_install(
-        'https://github.com/freetype/freetype.git',
-        'build',
-        cmake_args=['-DCMAKE_INSTALL_PREFIX:STRING="../../sdk"']
-    )
-
-    # Clone and clean ImGui
-    run_command('git clone --recursive https://github.com/ocornut/imgui.git', log_file, verbose=verbose)
-    shutil.move('imgui', 'sdk/include')
-    os.chdir('sdk/include/imgui/backends')
-    for impl in [
-        'imgui_impl_allegro5.cpp', 'imgui_impl_allegro5.h', 'imgui_impl_android.cpp', 'imgui_impl_android.h',
-        'imgui_impl_dx10.cpp', 'imgui_impl_dx10.h', 'imgui_impl_dx11.cpp', 'imgui_impl_dx11.h',
-        'imgui_impl_dx12.cpp', 'imgui_impl_dx12.h', 'imgui_impl_dx9.cpp', 'imgui_impl_dx9.h',
-        'imgui_impl_glut.cpp', 'imgui_impl_glut.h', 'imgui_impl_metal.h', 'imgui_impl_metal.mm',
-        'imgui_impl_osx.h', 'imgui_impl_osx.mm', 'imgui_impl_sdl2.cpp', 'imgui_impl_sdl2.h',
-        'imgui_impl_sdl3.cpp', 'imgui_impl_sdl3.h', 'imgui_impl_sdlrenderer2.cpp', 'imgui_impl_sdlrenderer2.h',
-        'imgui_impl_sdlrenderer3.cpp', 'imgui_impl_sdlrenderer3.h', 'imgui_impl_wgpu.cpp', 'imgui_impl_wgpu.h',
-        'imgui_impl_win32.cpp', 'imgui_impl_win32.h', 'imgui_impl_vulkan.h', 'imgui_impl_vulkan.cpp'
-    ]:
-        os.remove(impl)
-    os.chdir('../../../..')
-
-    # Package and move the SDK
-    tar_filename = f'sdk_gcc{gcc_version}-{timestamp}.tar.xz'
-    run_command(f'tar -cvJf {tar_filename} .', log_file, verbose=verbose)
-    shutil.move(tar_filename, '../..')
-    shutil.move('sdk', f'sdk-gcc{gcc_version}')
-    shutil.move(f'sdk-gcc{gcc_version}', '..')
-
-    # Cleanup
-    shutil.rmtree('frameworks')
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    print(f"Total execution time: {elapsed_time:.2f} seconds")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Build libraries with a specific GCC version.')
-    parser.add_argument('gcc_version', type=str, help='The GCC version to use.')
-    parser.add_argument('--verbose', action='store_true', help='Enable verbose output.')
-    args = parser.parse_args()
-    
-    main(args.gcc_version, args.verbose)
+    if len(sys.argv) != 2:
+        print("Usage: python3 build_sdk.py <gcc_version>")
+        sys.exit(1)
+
+    version = sys.argv[1]
+    main(version)
